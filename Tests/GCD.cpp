@@ -85,6 +85,21 @@ float dot(float* a, float* b, int n) {
   return sum;
 }
 
+void apply_filter(float* array, int array_width, int array_height,
+  float* filter, int filter_width, int filter_height,
+  float* result, int step) {
+    for(int y = 0; y < (array_height-filter_height)/step; y+=step ) {
+      for(int x = 0; x < (array_width-filter_width)/step; x+=step) {
+        float sum = 0;
+        for(int i = 0; i < filter_width*filter_height; i++ ) {
+          int index = y*array_width+x+i%array_width + (i/array_width)*array_width;
+          sum += array[index]*filter[i];
+        }
+        result[y*array_width+x] = sum;
+      }
+    }
+  }
+
 void matrix_mult(float* a, float* b, float* r, int m, int n) {
   for( unsigned int i = 0; i < m; i++ ) {
     for( unsigned int j = 0; j < n; j++ ) {
@@ -117,11 +132,9 @@ void matrix_mult_gpu(float* a, float* b, float* c, int m, int n) {
     k(&p, &q, &r, m, n, n);
   std::chrono::duration<double> wctduration = (std::chrono::system_clock::now() - wcts);
   std::cout << "GPU Finished in " << wctduration.count() << " seconds [Wall Clock]" << std::endl;
-  std::cout << "Type is: " << typeid(k).name() << std::endl;
   for( int i = 0; i < n*n; i++ ){
     c[i] = r[i];
   }
-  //fix(c, m, n);
 }
 
 void test_cpu() {
@@ -138,14 +151,14 @@ void test_cpu() {
   }
   printf("START\n");
   transpose(b, N);
-  /*{
+  {
     auto wcts = std::chrono::system_clock::now();
     matrix_mult(a, b, r, M, N);
     std::chrono::duration<double> wctduration = (std::chrono::system_clock::now() - wcts);
     std::cout << "CPU Finished in " << wctduration.count() << " seconds [Wall Clock]" << std::endl;
-  }*/
-  transpose(a, N);
+  }
   transpose(b, N);
+  transpose(a, N);
   {
     matrix_mult_gpu(a, b, gr, M, N);
   }
@@ -159,6 +172,15 @@ void test_cpu() {
         counter++;
       }
     }
+  }
+  {
+    auto wcts = std::chrono::system_clock::now();
+    float filter[4] = {1, 2, 1, 1};
+    apply_filter(a, M, N,
+      filter, 2, 2,
+      r, 1);
+    std::chrono::duration<double> wctduration = (std::chrono::system_clock::now() - wcts);
+    std::cout << "CPU Filter Finished in " << wctduration.count() << " seconds [Wall Clock]" << std::endl;
   }
   if( flag == true ){
     printf("Not Correct.\n");
